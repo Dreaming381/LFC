@@ -8,6 +8,7 @@ using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using Collider = Latios.Psyshock.Collider;
 using Physics = Latios.Psyshock.Physics;
 
 namespace CollisionWorldTest
@@ -159,7 +160,13 @@ namespace CollisionWorldTest
             {
             }).ScheduleSingle(state.Dependency);
             
-            state.Dependency = new RaycastJob()
+            // state.Dependency = new RaycastJob()
+            // {
+            //     World = collisionWorld,
+            //     QueryMask = bodiesTwoQueryMask
+            // }.Schedule(state.Dependency);
+            
+            state.Dependency = new DistanceBetweenJob()
             {
                 World = collisionWorld,
                 QueryMask = bodiesTwoQueryMask
@@ -214,6 +221,23 @@ namespace CollisionWorldTest
                 PhysicsDebug.DrawAabb(info.aabb, Color.green);
                 PhysicsDebug.DrawCollider(info.collider, info.transform, Color.chocolate);
                 Debug.Log($"hit entity {info.entity.Index}, bodyIndex {info.bodyIndex}, aabb from {info.aabb.min} to {info.aabb.max}");
+            }
+        }
+        
+        
+        [BurstCompile]
+        partial struct DistanceBetweenJob : IJobEntity
+        {
+            [ReadOnly] public CollisionWorld World;
+            [ReadOnly] public EntityQueryMask QueryMask;
+            
+            CollisionWorld.Mask mask;
+            void Execute(in Collider collider, in WorldTransform transform, in Raycaster raycaster)
+            {
+                if (!mask.isCreated) mask = World.CreateMask(QueryMask);
+                
+                var found = Physics.DistanceBetween(collider, in transform.worldTransform, in World, mask, 0f, out var result, out var info);
+                PhysicsDebug.DrawCollider(collider, transform.worldTransform, found ? Color.chartreuse : Color.red);
             }
         }
     }
